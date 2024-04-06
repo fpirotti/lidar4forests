@@ -5,7 +5,7 @@
 #							 -------------------
 #		begin				: 2024-03-21
 #		git sha				: $Format:%H$
-#		copyright			: (C) 2024 by Francesco Pirotti, Larissa Falcao
+#		copyright			: (C) 2024 by Francesco Pirotti, Larissa Falcao Granja
 #		email				: francesco.pirotti@unipd.it
 # ***************************************************************************/
 #

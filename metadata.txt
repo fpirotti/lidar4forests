@@ -7,7 +7,7 @@ name=Lidar_for_forests
 qgisMinimumVersion=3.0
 description=This plugin links lidar processes via the LidR R package to QGIS
 version=0.1
-author=Francesco Pirotti, Larissa Falcao
+author=Francesco Pirotti, Larissa Falcao Granja
 email=francesco.pirotti@unipd.it
 
 about=Provide a brief description of the plugin and its purpose.

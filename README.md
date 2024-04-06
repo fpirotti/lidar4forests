@@ -4,5 +4,5 @@
 
 
 
-## Installation instructionsd
+## Installation instructions
 
