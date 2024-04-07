@@ -46,10 +46,11 @@ from qgis.core import (Qgis, QgsProcessing,
                        QgsProcessingParameterFeatureSink)
 
 import os
+
+from .Rsession import *
 from qgis.utils import iface
 import inspect
 import pathlib
-
 
 class LidarSetupProject(QgsProcessingAlgorithm):
     """
@@ -72,7 +73,6 @@ class LidarSetupProject(QgsProcessingAlgorithm):
     OUTPUT = 'OUTPUT'
     INPUT = 'INPUT'
     VERBOSE = 'VERBOSE'
-
     def initAlgorithm(self, config):
         """
         Here we define the inputs and output of the algorithm, along
@@ -114,6 +114,10 @@ class LidarSetupProject(QgsProcessingAlgorithm):
             )
         )
 
+        rst = RsessionStart()
+        print(RsessionProcess)
+        print(R_HOME)
+
         self.verbose = True
         self.addParameter(
             QgsProcessingParameterBoolean(
@@ -123,7 +127,6 @@ class LidarSetupProject(QgsProcessingAlgorithm):
             )
         )
 
-        print(self.provider)
         # We add a feature sink in which to store our processed features (this
         # usually takes the form of a newly created vector layer when the
         # algorithm is run in QGIS).

@@ -42,6 +42,7 @@ from qgis.core import (QgsProcessing,
                        QgsProcessingParameterFile,
                        QgsProcessingParameterFeatureSink)
 
+from .Rsession import *
 class Lidar4ForestGlobalSetup(QgsProcessingAlgorithm):
     """
     This is an example algorithm that takes a vector layer and
@@ -69,8 +70,9 @@ class Lidar4ForestGlobalSetup(QgsProcessingAlgorithm):
         with some other properties.
         """
 
-
-
+        rst = RsessionStart()
+        print(RsessionProcess)
+        print(R_HOME)
         self.addParameter(
             QgsProcessingParameterFile(
                 self.INPUT,

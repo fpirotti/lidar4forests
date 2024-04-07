@@ -33,6 +33,8 @@ __revision__ = '$Format:%H$'
 import os
 import sys
 import inspect
+
+from PyQt5.QtWidgets import *
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (QgsProcessing,
@@ -41,6 +43,51 @@ from qgis.core import (QgsProcessing,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFile,
                        QgsProcessingParameterFeatureSink)
+
+#
+# class Ui_Dialog(object):
+#     def setupUi(self, Dialog):
+#         if not Dialog.objectName():
+#             Dialog.setObjectName(u"Dialog")
+#         Dialog.setWindowModality(Qt.ApplicationModal)
+#         Dialog.resize(471, 373)
+#         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+#         sizePolicy.setHorizontalStretch(0)
+#         sizePolicy.setVerticalStretch(0)
+#         sizePolicy.setHeightForWidth(Dialog.sizePolicy().hasHeightForWidth())
+#         Dialog.setSizePolicy(sizePolicy)
+#         Dialog.setSizeGripEnabled(True)
+#         Dialog.setModal(True)
+#         self.verticalLayout = QVBoxLayout(Dialog)
+#         self.verticalLayout.setObjectName(u"verticalLayout")
+#         self.textBrowser = QTextBrowser(Dialog)
+#         self.textBrowser.setObjectName(u"textBrowser")
+#
+#         self.verticalLayout.addWidget(self.textBrowser)
+#
+#         self.buttonBox = QDialogButtonBox(Dialog)
+#         self.buttonBox.setObjectName(u"buttonBox")
+#         self.buttonBox.setOrientation(Qt.Horizontal)
+#         self.buttonBox.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
+#
+#         self.verticalLayout.addWidget(self.buttonBox)
+#         self.retranslateUi(Dialog)
+#         self.buttonBox.accepted.connect(Dialog.accept)
+#         self.buttonBox.rejected.connect(Dialog.reject)
+#
+#         QMetaObject.connectSlotsByName(Dialog)
+#     # setupUi
+#
+#     def retranslateUi(self, Dialog):
+#         Dialog.setWindowTitle(QCoreApplication.translate("Dialog", u"About", None))
+#         self.textBrowser.setHtml(QCoreApplication.translate("Dialog", u"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+# "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
+# "p, li { white-space: pre-wrap; }\n"
+# "</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
+# "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Create by ....</p>\n"
+# "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><img src=\":/f/Screenshot 2024-04-06 124715.png\" /></p></body></html>", None))
+#     # retranslateUi
+
 
 class Lidar4ForestAbout(QgsProcessingAlgorithm):
     """
@@ -68,12 +115,9 @@ class Lidar4ForestAbout(QgsProcessingAlgorithm):
         Here we define the inputs and output of the algorithm, along
         with some other properties.
         """
-        self.addParameter(
-            QgsProcessingParameterFile(
-                self.INPUT,
-                self.tr('Choose folder containing point cloud files (only LAS/LAZ supported)')
-            )
-        )
+
+        dialog = QDialog(iface.mainWindow(),  "Select R executable in your machine", exepath)
+        success = dialog.exec()
 
 
     def processAlgorithm(self, parameters, context, feedback):

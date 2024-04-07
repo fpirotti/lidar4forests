@@ -36,7 +36,7 @@ import inspect
 from qgis.core import QgsProcessingProvider,  QgsApplication
 from qgis.PyQt.QtGui import *
 from .lidar4forest_01_setup_project import LidarSetupProject
-from .lidar4forest_00_about import Lidar4ForestAbout
+#from .lidar4forest_00_about import Lidar4ForestAbout
 from .lidar4forest_01_global_setup import Lidar4ForestGlobalSetup
 
 import subprocess
@@ -62,7 +62,7 @@ class LidarForForestProvider(QgsProcessingProvider):
         """
         self.addAlgorithm(Lidar4ForestGlobalSetup())
         self.addAlgorithm(LidarSetupProject())
-        self.addAlgorithm(Lidar4ForestAbout())
+        #self.addAlgorithm(Lidar4ForestAbout())
         # add additional algorithms here
         # self.addAlgorithm(MyOtherAlgorithm())
 

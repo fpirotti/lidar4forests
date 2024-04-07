@@ -44,15 +44,13 @@ from qgis.core import (QgsProcessingAlgorithm,
                        QgsApplication,
                        Qgis)
 
+from .Rsession import RsessionStart
 from .lidar4forest_provider import LidarForForestProvider
-from PyQt5.QtWidgets import QFileDialog
 if cmd_folder not in sys.path:
     sys.path.insert(0, cmd_folder)
 import platform
 from qgis.utils import iface
 
-global Rsession
-Rsession = None
 class LidarForForestPlugin(object):
 
     def __init__(self, iface):
@@ -65,63 +63,6 @@ class LidarForForestPlugin(object):
         """Init Processing provider for QGIS >= 3.8."""
         self.provider = LidarForForestProvider()
         QgsApplication.processingRegistry().addProvider(self.provider)
-
-    def startRsession(self):
-        exe = os.path.isfile(self.R_HOME) and os.access(self.R_HOME, os.X_OK)
-        if exe:
-            Rsession = subprocess.Popen(self.R_HOME)
-            poll = Rsession.poll()
-            if poll is None:
-                QgsMessageLog.logMessage("Seems to be running R session!!", level=Qgis.Success)
-                return self.R_HOME
-            else:
-                QgsMessageLog.logMessage("R session seems to be not running or able to run, please check your selected R path is correct",
-                                         level=Qgis.Critical)
-                return None
-
-        else:
-            QgsMessageLog.logMessage(
-                "R path seems not to be executable check that your selected path to R executable is correct and that you have permissions",
-                level=Qgis.Critical)
-            return None
-    def getRfilePath(self):
-        exepath = "/usr/local/bin"
-        if platform.system() == "Windows":
-            exepath = "C:\\PROGRA~1"
-
-        dialog = QFileDialog(iface.mainWindow(),  "Select R executable in your machine", exepath)
-        dialog.setFileMode(QFileDialog.ExistingFile)
-        dialog.setNameFilter( "R executable (R.exe R.*)" )
-        success = dialog.exec()
-        if success:
-            selectRexePath = dialog.selectedFiles()
-            selectRexePath = selectRexePath[0]
-            QgsMessageLog.logMessage(selectRexePath, level=Qgis.Success)
-            print(selectRexePath)
-            s = QgsSettings()
-            s.setValue("lidar4forests/R_HOME", selectRexePath)
-            self.R_HOME = s.value("lidar4forests/R_HOME", selectRexePath)
-            return self.R_HOME
-        else:
-            msg = "File dialog not able to be created!"
-            QgsMessageLog.logMessage(msg, level=Qgis.Warning)
-            self.iface.messageBar().pushMessage("Lidar4Forests: Warning", msg, level=Qgis.Critical)
-            return None
-
-
-    def fixRfilePath(self):
-        s = QgsSettings()
-        self.R_HOME = s.value("lidar4forests/R_HOME", "")
-        exe = os.path.isfile(self.R_HOME) and os.access(self.R_HOME, os.X_OK)
-        if not exe:
-            msg = "Path "+self.R_HOME+" should be R executable!"
-            QgsMessageLog.logMessage(msg, level=Qgis.Warning)
-            self.iface.messageBar().pushMessage("Lidar4Forests: Warning", msg, level=Qgis.Critical)
-            self.R_HOME = self.fixRfilePath()
-        else:
-            self.iface.messageBar().pushMessage("Lidar4Forests: Valid", "Path "+self.R_HOME+" is valid!", level=Qgis.Info)
-
-
 
     def initGui(self):
         self.initProcessing()
