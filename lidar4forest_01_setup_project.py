@@ -87,8 +87,7 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         s = QgsSettings()
         projectFolder1 = s.value("lidar4forests/projectFolder", "")
 
-        # We add the input vector features source. It can have any kind of
-        # geometry.
+        #
         proj = QgsProject.instance()
         projectFolder2, type_conversion_ok = proj.readEntry("lidar4forests",
                                                     "projectFolder",
@@ -114,7 +113,7 @@ class LidarSetupProject(QgsProcessingAlgorithm):
             )
         )
 
-        rst = RsessionStart()
+        rst = Rsession()
         print(RsessionProcess)
         print(R_HOME)
 
@@ -153,6 +152,8 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         """
         Here is where the processing itself takes place.
         """
+
+        rsession("print('hello world')")
 
         # Retrieve the feature source and sink. The 'dest_id' variable is used
         # to uniquely identify the feature sink, and must be included in the

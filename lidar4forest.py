@@ -33,7 +33,6 @@ __revision__ = '$Format:%H$'
 import os
 import qgis.gui
 import sys
-import subprocess
 import inspect
 
 cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
@@ -44,23 +43,25 @@ from qgis.core import (QgsProcessingAlgorithm,
                        QgsApplication,
                        Qgis)
 
-from .Rsession import RsessionStart
+from .Rsession import Rsession
 from .lidar4forest_provider import LidarForForestProvider
 if cmd_folder not in sys.path:
     sys.path.insert(0, cmd_folder)
-import platform
-from qgis.utils import iface
+#import platform
+#from qgis.utils import iface
+
+from .Rsession import *
 
 class LidarForForestPlugin(object):
 
     def __init__(self, iface):
         self.provider = None
         self.iface = iface
-        self.cmd_folder = cmd_folder
-        self.R_HOME = None
+        self.rst = Rsession()
 
     def initProcessing(self):
         """Init Processing provider for QGIS >= 3.8."""
+
         self.provider = LidarForForestProvider()
         QgsApplication.processingRegistry().addProvider(self.provider)
 
@@ -68,4 +69,6 @@ class LidarForForestPlugin(object):
         self.initProcessing()
 
     def unload(self):
+        self.rst.giveCommand("q('no')")
+        self.rst.stopRsession()
         QgsApplication.processingRegistry().removeProvider(self.provider)

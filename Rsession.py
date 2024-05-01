@@ -48,20 +48,53 @@ from qgis.core import (QgsProcessingAlgorithm,
                        Qgis)
 
 RsessionProcess = None
-R_HOME = None 
+R_HOME = None
 
-class RsessionStart(object):
+
+
+class Rsession(object):
     def __init__(self):
-        self.iface = iface  
+        self.iface = iface
         self.checkRfilePath()
         print(R_HOME)
         print(RsessionProcess)
 
+    def giveCommand(self, rcommand):
+        if RsessionProcess is not None:
+            RsessionProcess.stdin.write((rcommand + "\n").encode())
+            print(RsessionProcess)
+            print(RsessionProcess.stdin)
+            RsessionProcess.stdin.flush()
+            out = RsessionProcess.stdout.readline().decode()[:-1]
+            QgsMessageLog.logMessage(out, level=Qgis.Success)
+        else:
+            out = "R session not running"
+            QgsMessageLog.logMessage(out, level=Qgis.Warning)
+
+        print(out)
+
+    def stopRsession(self):
+        global RsessionProcess
+        print("stopping session!")
+        if RsessionProcess is not None:
+            print("2stopping session!")
+            poll = RsessionProcess.poll()
+            print(poll)
+
+            RsessionProcess.kill()
+            #else:
+            #    RsessionProcess.kill()
+
     def startRsession(self):
         global RsessionProcess
+        print("starting session!")
         exe = os.path.isfile(R_HOME) and os.access(R_HOME, os.X_OK)
         if exe:
-            RsessionProcess = subprocess.Popen(R_HOME)
+            RsessionProcess = subprocess.Popen([R_HOME, "--vanilla"],
+                                               stdout=subprocess.PIPE,
+                                               stdin=subprocess.PIPE,
+                                               stderr=subprocess.STDOUT,
+                                               shell=True)
             poll = RsessionProcess.poll()
             if poll is None:
                 QgsMessageLog.logMessage("Seems to be running R session!!", level=Qgis.Success)
@@ -69,7 +102,7 @@ class RsessionStart(object):
             else:
                 QgsMessageLog.logMessage \
                     ("R session seems to be not running or able to run, please check your selected R path is correct",
-                                         level=Qgis.Critical)
+                     level=Qgis.Critical)
                 return None
 
         else:
@@ -85,9 +118,9 @@ class RsessionStart(object):
         if platform.system() == "Windows":
             exepath = "C:\\PROGRA~1"
 
-        dialog = QFileDialog(iface.mainWindow(),  "Select R executable in your machine", exepath)
+        dialog = QFileDialog(iface.mainWindow(), "Select R executable in your machine", exepath)
         dialog.setFileMode(QFileDialog.ExistingFile)
-        dialog.setNameFilter( "R executable (R.exe R.*)" )
+        dialog.setNameFilter("R executable (R.exe R.*)")
         success = dialog.exec()
         if success:
             selectRexePath = dialog.selectedFiles()
@@ -99,20 +132,22 @@ class RsessionStart(object):
             R_HOME = s.value("lidar4forests/R_HOME", selectRexePath)
             return R_HOME
         else:
-            R_HOME=None
+            R_HOME = None
 
         return None
 
     def checkRfilePath(self):
+        global R_HOME
         s = QgsSettings()
         R_HOME = s.value("lidar4forests/R_HOME", "")
         exe = os.path.isfile(R_HOME) and os.access(R_HOME, os.X_OK)
         if not exe:
-            msg = "Path  " +R_HOME +" should be R executable!"
+            msg = "Path  " + R_HOME + " should be R executable!"
             QgsMessageLog.logMessage(msg, level=Qgis.Warning)
             self.iface.messageBar().pushMessage("Lidar4Forests: Warning", msg, level=Qgis.Critical)
             R_HOME = self.getRfilePath()
         else:
-            self.iface.messageBar().pushMessage("Lidar4Forests: Valid", "Path  " +R_HOME +" is valid!", level=Qgis.Info)
-
-
+            self.iface.messageBar().pushMessage("Lidar4Forests: Valid", "Path  " + R_HOME + " is valid!",
+                                                level=Qgis.Info)
+        if RsessionProcess is None:
+            self.startRsession()

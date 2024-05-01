@@ -70,13 +70,16 @@ class Lidar4ForestGlobalSetup(QgsProcessingAlgorithm):
         with some other properties.
         """
 
-        rst = RsessionStart()
+        rst = Rsession()
         print(RsessionProcess)
         print(R_HOME)
+        print("============")
+
         self.addParameter(
             QgsProcessingParameterFile(
                 self.INPUT,
-                self.tr('Choose folder containing R executables')
+                self.tr('Choose project folder containing point cloud files (only LAS/LAZ supported)'),
+                QgsProcessingParameterFile.Folder
             )
         )
 
@@ -85,7 +88,8 @@ class Lidar4ForestGlobalSetup(QgsProcessingAlgorithm):
         """
         Here is where the processing itself takes place.
         """
-
+        print("hasdfsd")
+        #rsession("print('hello world')")
         source = self.parameterAsSource(parameters, self.INPUT, context)
         print(source)
 
