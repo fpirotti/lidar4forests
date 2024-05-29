@@ -73,6 +73,11 @@ class LidarSetupProject(QgsProcessingAlgorithm):
     OUTPUT = 'OUTPUT'
     INPUT = 'INPUT'
     VERBOSE = 'VERBOSE'
+
+    def __init__(self):
+        super().__init__()
+        self.rst = None
+
     def initAlgorithm(self, config):
         """
         Here we define the inputs and output of the algorithm, along
@@ -113,7 +118,7 @@ class LidarSetupProject(QgsProcessingAlgorithm):
             )
         )
 
-        rst = Rsession()
+        self.rst = Rsession()
         print(RsessionProcess)
         print(R_HOME)
 
@@ -138,22 +143,20 @@ class LidarSetupProject(QgsProcessingAlgorithm):
 
     def setProgressText(self, feedback, stringin, messageType= Qgis.Info, force=False):
         if self.verbose is True or force:
-            print(stringin)
+
             if messageType == Qgis.Warning:
-                feedback.pushWarning(stringin)
-            elif messageType == Qgis.Error:
                 feedback.pushWarning(stringin)
             elif messageType == Qgis.Info:
                 feedback.setProgressText(stringin)
             else:
-                feedback.setProgressText(stringin)
+                feedback.setProgressText("("+messageType+"): "+stringin)
 
     def processAlgorithm(self, parameters, context, feedback):
         """
         Here is where the processing itself takes place.
         """
-
-        rsession("print('hello world')")
+        comres = self.rst.giveCommand("print('hello world')")
+        #rsession("print('hello world')")
 
         # Retrieve the feature source and sink. The 'dest_id' variable is used
         # to uniquely identify the feature sink, and must be included in the
@@ -166,7 +169,7 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         proj = QgsProject.instance()
         proj.writeEntry("lidar4forests", "projectFolder", source)
 
-        self.setProgressText(feedback, self.cmd_folder)
+        self.setProgressText(feedback, comres)
 
         files = [f for f in pathlib.Path(source).glob("*.laz")]
         for file in files:
