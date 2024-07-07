@@ -161,8 +161,8 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         mypath = str(pathlib.Path(source)).replace(os.sep, '/')
         print((mypath))
 
-        print(f"1111 ")
-        comres = self.rst.giveCommand("ctg <- lidR::readLAScatalog(\""+mypath+"\")\r\nsf::st_write(sf::st_as_sf(ctg), sprintf(\"%s/%s\", \""+mypath+"\", \"ctgIndex.gpkg\"))\r\n")
+        ##VERY VERY IMPORTANT TO ADD TWO CARRIAGE RETURNS TO READ AND BREAK IN RSESSION!
+        comres = self.rst.giveCommand("ctg <- lidR::readLAScatalog(\""+mypath+"\")\r\nsf::st_write(sf::st_as_sf(ctg), sprintf(\"%s/%s\", \""+mypath+"\", \"ctgIndex.gpkg\"))\r\n\r\n")
         #ctg <- lidR::readLAScatalog(\""+mypath+"\"); sf::st_write(as(ctg, \"sf\"), sprintf(\"%s/%s\", \""+mypath+"\", \"ctgIndex.shp\") \n")
 
         print(f"2222 ")

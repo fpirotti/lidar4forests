@@ -76,15 +76,17 @@ class Rsession(object):
 
             RsessionProcess.stdin.write(rcommand.encode())
             RsessionProcess.stdin.flush()
-            #stdout_iterator = iter(RsessionProcess.stdout.readline, b"")
-            cc = 0
             #for line in stdout_iterator:
             for line in RsessionProcess.stdout:
+                # Do stuff with line
+                #print(len(line))
+                #print(len(line.strip()))
                 print(line.strip())
-                if len(line) == 4 and len(line.strip()) == 1 and line.strip() == ">":
+                if len(line) == 4 and len(line.strip()) == 1:
+                    print(line.strip()[0])
                     break
 
-            #QgsMessageLog.logMessage(myoutput,   level=Qgis.Success)
+            QgsMessageLog.logMessage(line.strip(),   level=Qgis.Success)
             # QgsMessageLog.logMessage(out2, level=Qgis.Success)
         else:
             out = "R session not running!"
