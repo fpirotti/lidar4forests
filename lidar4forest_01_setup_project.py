@@ -84,10 +84,6 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         with some other properties.
         """
 
-        # self.bar = QgsMessageBar()
-        # self.bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed )
-        #
-        # self.parent.layout().addWidget(self.bar, 0, 0, 1, 1)
 
         s = QgsSettings()
         projectFolder1 = s.value("lidar4forests/projectFolder", "")
@@ -118,9 +114,9 @@ class LidarSetupProject(QgsProcessingAlgorithm):
             )
         )
 
+        print("check Rsession1")
         self.rst = Rsession()
-        print(RsessionProcess)
-        print(R_HOME)
+        print("check Rsession2")
 
         self.verbose = True
         self.addParameter(
@@ -155,12 +151,6 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         """
         Here is where the processing itself takes place.
         """
-        comres = self.rst.giveCommand("print('hello world')")
-        #rsession("print('hello world')")
-
-        # Retrieve the feature source and sink. The 'dest_id' variable is used
-        # to uniquely identify the feature sink, and must be included in the
-        # dictionary returned by the processAlgorithm function.
 
         source = self.parameterAsFile(parameters, self.INPUT, context)
 
@@ -168,8 +158,15 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         s.setValue("lidar4forests/projectFolder", source)
         proj = QgsProject.instance()
         proj.writeEntry("lidar4forests", "projectFolder", source)
+        mypath = str(pathlib.Path(source)).replace(os.sep, '/')
+        print((mypath))
 
-        self.setProgressText(feedback, comres)
+        print(f"1111 ")
+        comres = self.rst.giveCommand("ctg <- lidR::readLAScatalog(\""+mypath+"\");\n\n")
+        #ctg <- lidR::readLAScatalog(\""+mypath+"\"); sf::st_write(as(ctg, \"sf\"), sprintf(\"%s/%s\", \""+mypath+"\", \"ctgIndex.shp\") \n")
+
+        print(f"2222 ")
+        self.setProgressText(feedback, mypath )
 
         files = [f for f in pathlib.Path(source).glob("*.laz")]
         for file in files:

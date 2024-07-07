@@ -40,6 +40,7 @@ from qgis.core import (QgsProcessing,
                        QgsProcessingAlgorithm,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFile,
+                       QgsProject,
                        QgsProcessingParameterFeatureSink)
 
 from .Rsession import *
@@ -70,16 +71,30 @@ class Lidar4ForestGlobalSetup(QgsProcessingAlgorithm):
         with some other properties.
         """
 
-        rst = Rsession()
-        print(RsessionProcess)
-        print(R_HOME)
-        print("============")
+        s = QgsSettings()
+        rFolder1 = s.value("lidar4forests/R_HOME", "")
 
+        proj = QgsProject.instance()
+        rFolder2, type_conversion_ok = proj.readEntry("lidar4forests",
+                                                    "R_HOME",
+                                                    "")
+
+        # priority to project's info on where the project folder is
+        if rFolder2 == "":
+            rFolder = rFolder1
+        else:
+            rFolder = rFolder2
+
+        if rFolder != "" and not os.path.exists(rFolder):
+            iface.messageBar().pushMessage("Warning", "Path of R executable not available", level=Qgis.Critical)
+
+
+        R_HOME = rFolder
         self.addParameter(
             QgsProcessingParameterFile(
                 self.INPUT,
-                self.tr('Choose project folder containing point cloud files (only LAS/LAZ supported)'),
-                QgsProcessingParameterFile.Folder
+                self.tr('Choose folder containing R executable!'),
+                defaultValue=rFolder
             )
         )
 
@@ -88,10 +103,15 @@ class Lidar4ForestGlobalSetup(QgsProcessingAlgorithm):
         """
         Here is where the processing itself takes place.
         """
-        print("hasdfsd")
-        #rsession("print('hello world')")
-        source = self.parameterAsSource(parameters, self.INPUT, context)
+        print('hello world')
+        source = self.parameterAsFile(parameters, self.INPUT, context)
         print(source)
+
+        s = QgsSettings()
+        s.setValue("lidar4forests/R_HOME", source)
+        proj = QgsProject.instance()
+        proj.writeEntry("lidar4forests", "R_HOME", source)
+        #mypath = str(pathlib.Path(source)).replace(os.sep, '/')
 
         return {self.OUTPUT: None}
 

@@ -69,6 +69,6 @@ class LidarForForestPlugin(object):
         self.initProcessing()
 
     def unload(self):
-        self.rst.giveCommand("q('no')")
+        #self.rst.giveCommand("q('no')")
         self.rst.stopRsession()
         QgsApplication.processingRegistry().removeProvider(self.provider)

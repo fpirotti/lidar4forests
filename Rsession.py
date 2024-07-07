@@ -30,22 +30,34 @@ __copyright__ = '(C) 2024 by Francesco Pirotti, Larissa Falcao Granja'
 
 __revision__ = '$Format:%H$'
 
+import contextlib
 import os
 import qgis.gui
 import sys
 import platform
 import subprocess
 import inspect
+import time
 
 cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
 from qgis.utils import iface
-from PyQt5.QtWidgets import QFileDialog
+from PyQt5.QtWidgets import (QFileDialog, QDialog, QVBoxLayout, QMessageBox, QLabel)
 from qgis.core import (QgsProcessingAlgorithm,
                        QgsSettings,
                        QgsMessageLog,
-
                        QgsApplication,
                        Qgis)
+try:
+    import rpy2
+except ModuleNotFoundError:
+    dlg = QMessageBox(iface.mainWindow())
+    dlg.setIcon(QMessageBox.Warning)
+    dlg.setText("Library rpy2 not found, installing it using pip!")
+    dlg.addButton("Understood", QMessageBox.AcceptRole)
+    dlg.show()
+    QgsMessageLog.logMessage("Library rpy2 not found, installing it using pip!", level=Qgis.Critical)
+
+
 
 RsessionProcess = None
 R_HOME = None
@@ -56,53 +68,81 @@ class Rsession(object):
     def __init__(self):
         self.iface = iface
         self.checkRfilePath()
-        print(R_HOME)
-        print(RsessionProcess)
 
-    def giveCommand(self, rcommand):
+    def giveCommand(self,  rcommand):
+
+
         if RsessionProcess is not None:
-            RsessionProcess.stdin.write((rcommand + "\n").encode())
-            print(RsessionProcess)
-            print(RsessionProcess.stdin)
-            RsessionProcess.stdin.flush()
-            out = RsessionProcess.stdout.readline().decode()[:-1]
-            QgsMessageLog.logMessage(out, level=Qgis.Success)
-        else:
-            out = "R session not running"
-            QgsMessageLog.logMessage(out, level=Qgis.Warning)
 
-        print(out)
+            RsessionProcess.stdin.write(rcommand.encode())
+            RsessionProcess.stdin.flush()
+            #stdout_iterator = iter(RsessionProcess.stdout.readline, b"")
+            cc = 0
+            #for line in stdout_iterator:
+            for line in RsessionProcess.stdout:
+                # Do stuff with line
+                print(line.strip())
+                if len(line) == 4 and line.strip() == ">":
+                    break
+
+            #QgsMessageLog.logMessage(myoutput,   level=Qgis.Success)
+            # QgsMessageLog.logMessage(out2, level=Qgis.Success)
+        else:
+            out = "R session not running!"
+            print(out)
+            QgsMessageLog.logMessage(out, level=Qgis.Critical)
+
 
     def stopRsession(self):
         global RsessionProcess
-        print("stopping session!")
-        if RsessionProcess is not None:
-            print("2stopping session!")
-            poll = RsessionProcess.poll()
-            print(poll)
+        print(f"stopping session!")
+        if RsessionProcess:
+            isrunning =  self.is_running()
+            if isrunning:
+                self.giveCommand("quit(\"no\")\n")
+                print(f"\nkilling session!")
+                RsessionProcess.kill()
+            else:
+                QgsMessageLog.logMessage \
+                    ("R session seems to be not running - not stopping!",
+                     level=Qgis.Warning)
+                return None
 
-            RsessionProcess.kill()
-            #else:
-            #    RsessionProcess.kill()
+        else:
+            QgsMessageLog.logMessage \
+                ("R session seems to be NONE - not stopping!",
+                 level=Qgis.Warning)
+            return None
+
+    def is_running(self):
+        global RsessionProcess
+        return (RsessionProcess.poll() is None)
+
 
     def startRsession(self):
         global RsessionProcess
         print("starting session!")
         exe = os.path.isfile(R_HOME) and os.access(R_HOME, os.X_OK)
         if exe:
-            RsessionProcess = subprocess.Popen([R_HOME, "--vanilla"],
-                                               stdout=subprocess.PIPE,
-                                               stdin=subprocess.PIPE,
-                                               stderr=subprocess.STDOUT,
-                                               shell=True)
+            RsessionProcess = subprocess.Popen([R_HOME, "--no-save", "--no-restore"],
+                                             stdout=subprocess.PIPE,
+                                             stdin=subprocess.PIPE,
+                                             stderr=subprocess.STDOUT,
+                                             bufsize=0,
+                                             shell=True )
+
+            print(f'subprocess started:')
+
             poll = RsessionProcess.poll()
             if poll is None:
                 QgsMessageLog.logMessage("Seems to be running R session!!", level=Qgis.Success)
+                print(f"Seems to be running R session!!")
                 return R_HOME
             else:
                 QgsMessageLog.logMessage \
                     ("R session seems to be not running or able to run, please check your selected R path is correct",
                      level=Qgis.Critical)
+                print(f"R session seems to be not running or able to run,")
                 return None
 
         else:
@@ -149,5 +189,9 @@ class Rsession(object):
         else:
             self.iface.messageBar().pushMessage("Lidar4Forests: Valid", "Path  " + R_HOME + " is valid!",
                                                 level=Qgis.Info)
+            os.environ["R_HOME"] = f"C:/Program Files/R/R-4.2.2"
+            os.add_dll_directory(r"C:/Program Files/R/R-4.2.2/bin/x64/")
         if RsessionProcess is None:
             self.startRsession()
+        else:
+            print(f"-----session is RUNNING")
