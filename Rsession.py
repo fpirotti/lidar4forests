@@ -86,7 +86,7 @@ class Rsession(object):
                     print(line.strip()[0])
                     break
 
-            QgsMessageLog.logMessage(line.strip(),   level=Qgis.Success)
+            QgsMessageLog.logMessage( str(line.strip()),   level=Qgis.Success)
             # QgsMessageLog.logMessage(out2, level=Qgis.Success)
         else:
             out = "R session not running!"

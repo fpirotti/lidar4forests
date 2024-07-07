@@ -34,6 +34,18 @@ from qgis.PyQt.QtWidgets import *
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.uic import *
 from qgis.PyQt.QtCore import (QCoreApplication)
+from qgis.core import QgsProcessing
+from qgis.core import QgsProcessingAlgorithm
+from qgis.core import QgsProcessingMultiStepFeedback
+from qgis.core import QgsProcessingParameterFile
+from qgis.core import QgsProcessingParameterNumber
+from qgis.core import QgsProcessingParameterVectorLayer
+from qgis.core import QgsProcessingParameterRasterDestination
+from qgis.core import QgsProcessingParameterVectorDestination
+from qgis.core import QgsProcessingParameterString
+from qgis.core import  *
+
+from qgis.utils import *
 from qgis.core import (Qgis, QgsProcessing,
                       QgsSettings,
                         QgsMessageLog,
@@ -41,6 +53,7 @@ from qgis.core import (Qgis, QgsProcessing,
                         QgsProcessingParameterBoolean,
                        QgsFeatureSink,
                        QgsProcessingAlgorithm,
+                        QgsProcessingParameterVectorDestination,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFile,
                        QgsProcessingParameterFeatureSink)
@@ -51,7 +64,7 @@ from .Rsession import *
 from qgis.utils import iface
 import inspect
 import pathlib
-
+dirname, filename = os.path.split(os.path.abspath(__file__))
 class LidarSetupProject(QgsProcessingAlgorithm):
     """
     This is an example algorithm that takes a vector layer and
@@ -70,8 +83,13 @@ class LidarSetupProject(QgsProcessingAlgorithm):
     # used when calling the algorithm from another algorithm, or when
     # calling from the QGIS console.
 
-    OUTPUT = 'OUTPUT'
     INPUT = 'INPUT'
+    PARCELS = 'PARCELS'
+    TARIF = 'TARIF'
+
+    TREEPOSITION = 'TREEPOSITION'
+    CHM = 'CHM'
+    OUTPUT = 'OUTPUT'
     VERBOSE = 'VERBOSE'
 
     def __init__(self):
@@ -104,15 +122,22 @@ class LidarSetupProject(QgsProcessingAlgorithm):
             iface.messageBar().pushMessage("Warning", "Path of point clouds files not available", level=Qgis.Critical)
 
         #QgsMessageLog.logMessage("Your plugin code might have some problems", level=Qgis.Warning)
-
         self.addParameter(
             QgsProcessingParameterFile(
-                self.INPUT,
+                'folder_with_las_files',
                 self.tr('Choose project folder containing point cloud files (only LAS/LAZ supported)'),
                 QgsProcessingParameterFile.Folder,
                 defaultValue=projectFolder
             )
         )
+
+        self.addParameter(QgsProcessingParameterNumber('output_chm_resolution', 'Output CHM resolution', type=QgsProcessingParameterNumber.Double, minValue=0.1, maxValue=10, defaultValue=1))
+        self.addParameter(QgsProcessingParameterVectorLayer('parcels_optionally_with_tarifs', 'Parcels optionally with tarifs', optional=True, types=[QgsProcessing.TypeVectorPolygon], defaultValue=None))
+        self.addParameter(QgsProcessingParameterRasterDestination('Chm', 'CHM', createByDefault=True, defaultValue=None))
+
+        self.addParameter(QgsProcessingParameterVectorDestination('ParcelsWithEstimatedTotalVolume', 'Parcels with Estimated total Volume', type=QgsProcessing.TypeVectorPoint, createByDefault=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterString('allometry_tarif_reference__function__see_examples', 'Allometry (tarif reference | function) ... see examples)', multiLine=True, defaultValue='v=0.0026*h^2+0.0299*h-0.478'))
+
 
         print("check Rsession1")
         self.rst = Rsession()
@@ -127,15 +152,13 @@ class LidarSetupProject(QgsProcessingAlgorithm):
             )
         )
 
-        # We add a feature sink in which to store our processed features (this
-        # usually takes the form of a newly created vector layer when the
-        # algorithm is run in QGIS).
-        #self.addParameter(
-        #    QgsProcessingParameterFeatureSink(
-        #        self.OUTPUT,
-        #        self.tr('Output layer')
-        #    )
-        #)
+        self.addParameter(QgsProcessingParameterVectorDestination(
+                          'LasTiles',
+                          'LAS Tiles',
+                          type=QgsProcessing.TypeVectorPolygon,
+                          createByDefault=True,
+                          optional=False,
+                          defaultValue=None))
 
     def setProgressText(self, feedback, stringin, messageType= Qgis.Info, force=False):
         if self.verbose is True or force:
@@ -152,27 +175,30 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         Here is where the processing itself takes place.
         """
 
-        source = self.parameterAsFile(parameters, self.INPUT, context)
+        source = self.parameterAsFile(parameters, 'folder_with_las_files', context)
 
         s = QgsSettings()
         s.setValue("lidar4forests/projectFolder", source)
         proj = QgsProject.instance()
         proj.writeEntry("lidar4forests", "projectFolder", source)
         mypath = str(pathlib.Path(source)).replace(os.sep, '/')
-        print((mypath))
 
+        geopackage = os.path.join(mypath, "ctgIndex.gpkg" )
+        if not os.path.exists(geopackage):
         ##VERY VERY IMPORTANT TO ADD TWO CARRIAGE RETURNS TO READ AND BREAK IN RSESSION!
-        comres = self.rst.giveCommand("ctg <- lidR::readLAScatalog(\""+mypath+"\")\r\nsf::st_write(sf::st_as_sf(ctg), sprintf(\"%s/%s\", \""+mypath+"\", \"ctgIndex.gpkg\"))\r\n\r\n")
-        #ctg <- lidR::readLAScatalog(\""+mypath+"\"); sf::st_write(as(ctg, \"sf\"), sprintf(\"%s/%s\", \""+mypath+"\", \"ctgIndex.shp\") \n")
+            self.rst.giveCommand("ctg <- lidR::readLAScatalog(\""+mypath+"\")\r\nsf::st_write(sf::st_as_sf(ctg), sprintf(\"%s/%s\", \""+mypath+"\", \"ctgIndex.gpkg\"))\r\n\r\n")
 
-        print(f"2222 ")
         self.setProgressText(feedback, mypath )
 
-        files = [f for f in pathlib.Path(source).glob("*.laz")]
-        for file in files:
-            self.setProgressText(feedback, "File... " + str(file.name))
+        out_vlayer = QgsVectorLayer(geopackage, "LAS Tiles")
+        mess, success = out_vlayer.loadNamedStyle(dirname + "/extra/styleLAStiles.qml")
+        QgsProject.instance().addMapLayer(out_vlayer)
 
-        return {self.OUTPUT: files}
+        #files = [f for f in pathlib.Path(source).glob("*.laz")]
+        #for file in files:
+        #    self.setProgressText(feedback, "File... " + str(file.name))
+
+        return {self.OUTPUT: geopackage}
 
 
     def name(self):
