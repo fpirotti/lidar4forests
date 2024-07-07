@@ -185,12 +185,18 @@ class LidarSetupProject(QgsProcessingAlgorithm):
 
         geopackage = os.path.join(mypath, "ctgIndex.gpkg" )
         if not os.path.exists(geopackage):
+            self.setProgressText(feedback, "Be patient, processing with LidR!!" )
         ##VERY VERY IMPORTANT TO ADD TWO CARRIAGE RETURNS TO READ AND BREAK IN RSESSION!
             self.rst.giveCommand("ctg <- lidR::readLAScatalog(\""+mypath+"\")\r\nsf::st_write(sf::st_as_sf(ctg), sprintf(\"%s/%s\", \""+mypath+"\", \"ctgIndex.gpkg\"))\r\n\r\n")
 
         self.setProgressText(feedback, mypath )
 
         out_vlayer = QgsVectorLayer(geopackage, "LAS Tiles")
+
+        #canvas = iface.mapCanvas()
+        #extent = out_vlayer.extent()
+        #canvas.setExtent(extent)
+        #canvas.refresh()
         mess, success = out_vlayer.loadNamedStyle(dirname + "/extra/styleLAStiles.qml")
         QgsProject.instance().addMapLayer(out_vlayer)
 
