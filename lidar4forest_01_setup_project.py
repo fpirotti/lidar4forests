@@ -178,10 +178,10 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         proj = QgsProject.instance()
         proj.writeEntry("lidar4forests", "projectFolder", source)
         mypath = str(pathlib.Path(source)).replace(os.sep, '/')
-        geopackage = PureWindowsPath(os.path.join(mypath, "ctgIndex.gpkg" )).as_posix()
-        trees = PureWindowsPath(os.path.join(mypath, "trees%.2f.gpkg" % rastres )).as_posix()
-        Exists_geopackage = os.path.exists(geopackage)
         outdir = PureWindowsPath(os.path.join(mypath, "output%.2fm" % rastres )).as_posix()
+        geopackage = PureWindowsPath(os.path.join(outdir, "ctgIndex.gpkg" )).as_posix()
+        trees = PureWindowsPath(os.path.join(outdir, "trees%.2f.gpkg" % rastres )).as_posix()
+        Exists_geopackage = os.path.exists(geopackage)
         if not os.path.exists(outdir):
             os.mkdir(outdir)
 
