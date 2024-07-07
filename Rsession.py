@@ -80,9 +80,8 @@ class Rsession(object):
             cc = 0
             #for line in stdout_iterator:
             for line in RsessionProcess.stdout:
-                # Do stuff with line
                 print(line.strip())
-                if len(line) == 4 and line.strip() == ">":
+                if len(line) == 4 and len(line.strip()) == 1 and line.strip() == ">":
                     break
 
             #QgsMessageLog.logMessage(myoutput,   level=Qgis.Success)

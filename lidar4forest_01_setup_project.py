@@ -162,7 +162,7 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         print((mypath))
 
         print(f"1111 ")
-        comres = self.rst.giveCommand("ctg <- lidR::readLAScatalog(\""+mypath+"\");\n\n")
+        comres = self.rst.giveCommand("ctg <- lidR::readLAScatalog(\""+mypath+"\")\r\nsf::st_write(sf::st_as_sf(ctg), sprintf(\"%s/%s\", \""+mypath+"\", \"ctgIndex.gpkg\"))\r\n")
         #ctg <- lidR::readLAScatalog(\""+mypath+"\"); sf::st_write(as(ctg, \"sf\"), sprintf(\"%s/%s\", \""+mypath+"\", \"ctgIndex.shp\") \n")
 
         print(f"2222 ")
