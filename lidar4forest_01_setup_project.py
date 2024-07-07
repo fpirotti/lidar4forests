@@ -65,6 +65,7 @@ from .Rsession import *
 from qgis.utils import iface
 import inspect
 import pathlib
+from pathlib import PureWindowsPath
 dirname, filename = os.path.split(os.path.abspath(__file__))
 class LidarSetupProject(QgsProcessingAlgorithm):
     """
@@ -153,7 +154,7 @@ class LidarSetupProject(QgsProcessingAlgorithm):
                           optional=False,
                           defaultValue=None))
 
-    def setProgressText(self, feedback, stringin, messageType= Qgis.Info, force=False):
+    def setProgressText(self, feedback, stringin, messageType=Qgis.Info, force=False):
         if self.verbose is True or force:
 
             if messageType == Qgis.Warning:
@@ -170,27 +171,37 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         feedback = QgsProcessingMultiStepFeedback(11, feedback)
         names = [layer.name() for layer in QgsProject.instance().mapLayers().values()]
         source = self.parameterAsFile(parameters, 'folder_with_las_files', context)
+        rastres = float(parameters['output_chm_resolution'])
 
         s = QgsSettings()
         s.setValue("lidar4forests/projectFolder", source)
         proj = QgsProject.instance()
         proj.writeEntry("lidar4forests", "projectFolder", source)
         mypath = str(pathlib.Path(source)).replace(os.sep, '/')
+        geopackage = PureWindowsPath(os.path.join(mypath, "ctgIndex.gpkg" )).as_posix()
+        trees = PureWindowsPath(os.path.join(mypath, "trees%.2f.gpkg" % rastres )).as_posix()
+        Exists_geopackage = os.path.exists(geopackage)
+        outdir = PureWindowsPath(os.path.join(mypath, "output%.2fm" % rastres )).as_posix()
+        if not os.path.exists(outdir):
+            os.mkdir(outdir)
 
-        geopackage = os.path.join(mypath, "ctgIndex.gpkg" )
-        dtm = os.path.join(mypath, "dtm_res%.2f.tif" )
-        chm = os.path.join(mypath, "chm_res%.2f.tif" )
-        trees = os.path.join(mypath, "chm_res%.2f.tif" )
+        opt_output_files_norm = PureWindowsPath(os.path.join(outdir, "norm_{ORIGINALFILENAME}")).as_posix()
+        opt_output_files_dtm  = PureWindowsPath(os.path.join(outdir, "dtm_{ORIGINALFILENAME}")).as_posix()
+        opt_output_files_chm  = PureWindowsPath(os.path.join(outdir, "chm_{ORIGINALFILENAME}")).as_posix()
+        dtm = outdir + "/rasterize_terrain.vrt"
+
         QgsMessageLog.logMessage('Creating LAS tiles from LAS files', level=Qgis.MessageLevel.Info)
         if not os.path.exists(geopackage):
             mess = "Be patient, processing catalogue with LidR!!"
             #iface.messageBar().pushMessage("Lidar4Forests: ", mess,   level=Qgis.Info)
             self.setProgressText(feedback, mess)
             ##VERY VERY IMPORTANT TO ADD TWO CARRIAGE RETURNS TO READ AND BREAK IN RSESSION!
-            self.rst.giveCommand("ctg <- lidR::readLAScatalog(\""+mypath+"\")\r\nsave(ctg, file=\"" +
+            self.rst.giveCommand("ctg <- readLAScatalog(\""+mypath+"\")\r\nsave(ctg, file=\"" +
                                  mypath + "/savedata.rda\")\r\nsf::st_write(sf::st_as_sf(ctg), \"" +
-                                 geopackage+"\")\r\n\r\n")
+                                 geopackage+"\")\r\n\r\n", feedback)
         else:
+            self.rst.giveCommand("load(file=\"" +
+                                 mypath + "/savedata.rda\")\r\n\r\n", feedback)
             self.setProgressText(feedback, "LAS tiles already exist so we use existing ones.")
 
         if feedback.isCanceled():
@@ -220,17 +231,47 @@ class LidarSetupProject(QgsProcessingAlgorithm):
 
         if feedback.isCanceled():
             return {}
+############## DTM ############
 
-        dtm = dtm % float(parameters['output_chm_resolution'])
-        self.setProgressText(feedback, 'Creating CHM from LAS files: ' + os.path.basename(dtm))
+        Exists_dtm = os.path.exists(dtm)
+        if feedback.isCanceled():
+            return {}
+        self.setProgressText(feedback, 'Creating DTM from LAS files: ' + os.path.basename(dtm))
 
-        QgsMessageLog.logMessage('Creating CHM from LAS files', level=Qgis.MessageLevel.Info)
         self.rst.giveCommand(
-            "dtm_tin <- lidR::rasterize_terrain(ctg, res = " + str(parameters['output_chm_resolution']) + ", algorithm = tin())\r\nterra::writeRaster(dtm_tin, \"" + dtm + "\", filetype = \"GTiff\", overwrite = TRUE))\r\n\r\n")
+            "opt_output_files(ctg) <- \"" + opt_output_files_dtm + "\"\r\ndtm_tin <- rasterize_terrain(ctg, res = " + str(parameters['output_chm_resolution']) + ", algorithm = lidR::tin())\r\n\r\n",
+            feedback)
 
-        out_dtm = QgsRasterLayer(dtm, os.path.basename(dtm))
+        out_dtm = QgsRasterLayer(dtm, "DTM res %.2f meters" % rastres)
         mess, success = out_dtm.loadNamedStyle(dirname + "/extra/styleDTM.qml")
         QgsProject.instance().addMapLayer(out_dtm)
+
+        if feedback.isCanceled():
+            return {}
+
+        self.setProgressText(feedback, 'Normalizing LAS files: ')
+
+        self.rst.giveCommand(
+            "opt_output_files(ctg) <- \"" + opt_output_files_norm + "\"\r\nnlas.ctg <- normalize_height(ctg, tin(), dtm = dtm_tin)\r\n\r\n",
+            feedback)
+
+        if feedback.isCanceled():
+            return {}
+
+        self.setProgressText(feedback, 'Creating CHM... ')
+
+        self.rst.giveCommand(
+            "opt_output_files(ctg) <- \"" + opt_output_files_chm + "\"\r\nchm <- rasterize_canopy(nlas.ctg, res=%.2f, pitfree(thresholds = c(0, 10, 20), max_edge = c(0, 1.5)))\r\n\r\n" % rastres,
+            feedback)
+
+
+        out_chm = QgsRasterLayer(dtm, "CHM res %.2f meters" % rastres)
+        mess, success = out_chm.loadNamedStyle(dirname + "/extra/styleCHM.qml")
+        QgsProject.instance().addMapLayer(out_chm)
+
+#"opt_output_files(ctg) <- \"" + + "\"\r\nchm <- rasterize_canopy(nlas.ctg, res = 0.5, pitfree(thresholds = c(0, 10, 20), max_edge = c(0, 1.5)))"
+
+        Exists_trees = os.path.exists(trees)
 
         return {self.OUTPUT: geopackage}
 

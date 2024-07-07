@@ -44,6 +44,7 @@ from qgis.utils import iface
 from PyQt5.QtWidgets import (QFileDialog, QDialog, QVBoxLayout, QMessageBox, QLabel)
 from qgis.core import (QgsProcessingAlgorithm,
                        QgsSettings,
+                        QgsProcessingMultiStepFeedback,
                        QgsMessageLog,
                        QgsApplication,
                        Qgis)
@@ -69,8 +70,7 @@ class Rsession(object):
         self.iface = iface
         self.checkRfilePath()
 
-    def giveCommand(self,  rcommand):
-
+    def giveCommand(self,  rcommand, feedback=None):
 
         if RsessionProcess is not None:
 
@@ -79,20 +79,25 @@ class Rsession(object):
             #for line in stdout_iterator:
             for line in RsessionProcess.stdout:
                 # Do stuff with line
+                ls = line.strip().decode()
                 #print(len(line))
                 #print(len(line.strip()))
-                print(line.strip())
-                if len(line) == 4 and len(line.strip()) == 1:
-                    print(line.strip()[0])
+                print(ls)
+                if feedback:
+                    self.setProgressTextW(feedback, ls)
+                if len(line) == 4 and len(ls) == 1:
+                    print(ls[0])
                     break
 
-            QgsMessageLog.logMessage( str(line.strip()),   level=Qgis.Success)
+            QgsMessageLog.logMessage( str(ls), level=Qgis.Success)
             # QgsMessageLog.logMessage(out2, level=Qgis.Success)
         else:
             out = "R session not running!"
             print(out)
             QgsMessageLog.logMessage(out, level=Qgis.Critical)
 
+    def setProgressTextW(self, feedback, stringin):
+        feedback.setProgressText(str(stringin))
 
     def stopRsession(self):
         global RsessionProcess
@@ -137,7 +142,9 @@ class Rsession(object):
             poll = RsessionProcess.poll()
             if poll is None:
                 QgsMessageLog.logMessage("Seems to be running R session!!", level=Qgis.Success)
-                print(f"Seems to be running R session!!")
+                print(f"Seems to be running R session!! Adding libraries")
+                RsessionProcess.stdin.write(str("library(lidR)\r\n").encode())
+                RsessionProcess.stdin.flush()
                 return R_HOME
             else:
                 QgsMessageLog.logMessage \
