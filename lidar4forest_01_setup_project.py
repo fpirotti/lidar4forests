@@ -33,6 +33,7 @@ from qgis.gui import (QgsMessageBar)
 from qgis.PyQt.QtWidgets import *
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.uic import *
+
 from qgis.PyQt.QtCore import (QCoreApplication)
 from qgis.core import QgsProcessing
 from qgis.core import QgsProcessingAlgorithm
@@ -134,23 +135,15 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterNumber('output_chm_resolution', 'Output CHM resolution', type=QgsProcessingParameterNumber.Double, minValue=0.1, maxValue=10, defaultValue=1))
         self.addParameter(QgsProcessingParameterVectorLayer('parcels_optionally_with_tarifs', 'Parcels optionally with tarifs', optional=True, types=[QgsProcessing.TypeVectorPolygon], defaultValue=None))
         self.addParameter(QgsProcessingParameterRasterDestination('Chm', 'CHM', createByDefault=True, defaultValue=None))
-
+        self.addParameter(QgsProcessingParameterBoolean('user_las_classification_for_better', 'Use LAS classification (CHM only from tree classes)',  defaultValue=False))
         self.addParameter(QgsProcessingParameterVectorDestination('ParcelsWithEstimatedTotalVolume', 'Parcels with Estimated total Volume', type=QgsProcessing.TypeVectorPoint, createByDefault=True, defaultValue=None))
-        self.addParameter(QgsProcessingParameterString('allometry_tarif_reference__function__see_examples', 'Allometry (tarif reference | function) ... see examples)', multiLine=True, defaultValue='v=0.0026*h^2+0.0299*h-0.478'))
-
+        self.addParameter(QgsProcessingParameterString('allometry_tarif_reference__function__see_examples', 'Allometry (tarif reference | function) ... see examples)', multiLine=True, defaultValue='1 | v=0.0026*h^2+0.0299*h-0.478\n2 | v=0.007*exp(0.1936*h)\n3 | v=0.0063*exp(0.2119*h) '))
 
         print("check Rsession1")
         self.rst = Rsession()
         print("check Rsession2")
 
         self.verbose = True
-        self.addParameter(
-            QgsProcessingParameterBoolean(
-                self.VERBOSE,
-                self.tr('Output verboso'),
-                defaultValue=True
-            )
-        )
 
         self.addParameter(QgsProcessingParameterVectorDestination(
                           'LasTiles',
@@ -174,7 +167,8 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         """
         Here is where the processing itself takes place.
         """
-
+        feedback = QgsProcessingMultiStepFeedback(11, feedback)
+        names = [layer.name() for layer in QgsProject.instance().mapLayers().values()]
         source = self.parameterAsFile(parameters, 'folder_with_las_files', context)
 
         s = QgsSettings()
@@ -184,25 +178,59 @@ class LidarSetupProject(QgsProcessingAlgorithm):
         mypath = str(pathlib.Path(source)).replace(os.sep, '/')
 
         geopackage = os.path.join(mypath, "ctgIndex.gpkg" )
+        dtm = os.path.join(mypath, "dtm_res%.2f.tif" )
+        chm = os.path.join(mypath, "chm_res%.2f.tif" )
+        trees = os.path.join(mypath, "chm_res%.2f.tif" )
+        QgsMessageLog.logMessage('Creating LAS tiles from LAS files', level=Qgis.MessageLevel.Info)
         if not os.path.exists(geopackage):
-            self.setProgressText(feedback, "Be patient, processing with LidR!!" )
-        ##VERY VERY IMPORTANT TO ADD TWO CARRIAGE RETURNS TO READ AND BREAK IN RSESSION!
-            self.rst.giveCommand("ctg <- lidR::readLAScatalog(\""+mypath+"\")\r\nsf::st_write(sf::st_as_sf(ctg), sprintf(\"%s/%s\", \""+mypath+"\", \"ctgIndex.gpkg\"))\r\n\r\n")
+            mess = "Be patient, processing catalogue with LidR!!"
+            #iface.messageBar().pushMessage("Lidar4Forests: ", mess,   level=Qgis.Info)
+            self.setProgressText(feedback, mess)
+            ##VERY VERY IMPORTANT TO ADD TWO CARRIAGE RETURNS TO READ AND BREAK IN RSESSION!
+            self.rst.giveCommand("ctg <- lidR::readLAScatalog(\""+mypath+"\")\r\nsave(ctg, file=\"" +
+                                 mypath + "/savedata.rda\")\r\nsf::st_write(sf::st_as_sf(ctg), \"" +
+                                 geopackage+"\")\r\n\r\n")
+        else:
+            self.setProgressText(feedback, "LAS tiles already exist so we use existing ones.")
 
-        self.setProgressText(feedback, mypath )
+        if feedback.isCanceled():
+            return {}
+
+        self.setProgressText(feedback, mypath)
+
+        if 'OpenStreetMap' not in names:
+            urlWithParams = 'type=xyz&url=http://a.tile.openstreetmap.org/%7Bz%7D/%7Bx%7D/%7By%7D.png&zmax=19&zmin=0&crs=EPSG3857'
+            rlayer = QgsRasterLayer(urlWithParams, 'OpenStreetMap', 'wms')  # EDIT THIS LINE
+            if rlayer.isValid():
+                QgsProject.instance().addMapLayer(rlayer)
+            else:
+                QgsMessageLog.logMessage('invalid OSM layer')
+
+        if "LAS Tiles" in names:
+                QgsMessageLog.logMessage('Removing existing LAS Tile layer', level=Qgis.MessageLevel.Warning    )
+
+
+        if feedback.isCanceled():
+            return {}
+        self.setProgressText(feedback, "Adding LAS tiles layer")
 
         out_vlayer = QgsVectorLayer(geopackage, "LAS Tiles")
-
-        #canvas = iface.mapCanvas()
-        #extent = out_vlayer.extent()
-        #canvas.setExtent(extent)
-        #canvas.refresh()
         mess, success = out_vlayer.loadNamedStyle(dirname + "/extra/styleLAStiles.qml")
         QgsProject.instance().addMapLayer(out_vlayer)
 
-        #files = [f for f in pathlib.Path(source).glob("*.laz")]
-        #for file in files:
-        #    self.setProgressText(feedback, "File... " + str(file.name))
+        if feedback.isCanceled():
+            return {}
+
+        dtm = dtm % float(parameters['output_chm_resolution'])
+        self.setProgressText(feedback, 'Creating CHM from LAS files: ' + os.path.basename(dtm))
+
+        QgsMessageLog.logMessage('Creating CHM from LAS files', level=Qgis.MessageLevel.Info)
+        self.rst.giveCommand(
+            "dtm_tin <- lidR::rasterize_terrain(ctg, res = " + str(parameters['output_chm_resolution']) + ", algorithm = tin())\r\nterra::writeRaster(dtm_tin, \"" + dtm + "\", filetype = \"GTiff\", overwrite = TRUE))\r\n\r\n")
+
+        out_dtm = QgsRasterLayer(dtm, os.path.basename(dtm))
+        mess, success = out_dtm.loadNamedStyle(dirname + "/extra/styleDTM.qml")
+        QgsProject.instance().addMapLayer(out_dtm)
 
         return {self.OUTPUT: geopackage}
 
